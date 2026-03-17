@@ -1,0 +1,30 @@
+[package]
+name = "nu_plugin_llm"
+version = "0.2.0"
+edition = "2021"
+description = "The complete LLM-optimized nushell plugin for AI-friendly structured data output"
+license = "MIT"
+repository = "https://github.com/openclaw/nu_plugin_llm"
+keywords = ["nushell", "plugin", "llm", "ai", "structured-data"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+nu-plugin = "0.111.0"
+nu-protocol = "0.111.0"
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+sysinfo = "0.32"
+walkdir = "2.0"
+regex = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+sha2 = "0.10"
+hex = "0.4"
+git2 = { version = "0.18", optional = true }
+
+[features]
+default = ["git"]
+git = ["git2"]
+
+[[bin]]
+name = "nu_plugin_llm"
+path = "src/main.rs"

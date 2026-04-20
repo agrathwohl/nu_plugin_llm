@@ -9,8 +9,8 @@ keywords = ["nushell", "plugin", "llm", "ai", "structured-data"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-nu-plugin = "0.111.0"
-nu-protocol = "0.111.0"
+nu-plugin = "0.112.1"
+nu-protocol = "0.112.1"
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 sysinfo = "0.32"

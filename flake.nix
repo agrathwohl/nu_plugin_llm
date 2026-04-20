@@ -21,13 +21,11 @@
             rustToolchain
             pkgs.pkg-config
             pkgs.openssl
-            pkgs.libgit2
           ];
 
           env = {
             OPENSSL_DIR = "${pkgs.openssl.dev}";
             OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-            LIBGIT2_NO_VENDOR = "1";
           };
         };
       });

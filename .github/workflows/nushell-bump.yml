@@ -1,0 +1,45 @@
+name: nushell bump
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # nushell raises its MSRV on minor bumps; don't rely on the image's rustc
+      - uses: dtolnay/rust-toolchain@stable
+
+      - id: ver
+        run: |
+          latest=$(curl -sSf -H 'User-Agent: nu_plugin_llm-ci' \
+            https://crates.io/api/v1/crates/nu-plugin | jq -r .crate.max_stable_version)
+          current=$(sed -n 's/^nu-plugin = "\(.*\)"/\1/p' Cargo.toml)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$current" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+          echo "current=$current latest=$latest"
+
+      - if: steps.ver.outputs.skip != 'true'
+        env:
+          NU: ${{ steps.ver.outputs.latest }}
+        run: |
+          cargo add "nu-plugin@$NU" "nu-protocol@$NU"
+          cargo build --release
+
+      - if: steps.ver.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NU: ${{ steps.ver.outputs.latest }}
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "build against nushell $NU"
+          git push
+          gh release create "nu-$NU" --title "nushell $NU" \
+            --notes "Compiles against nu-plugin/nu-protocol $NU."

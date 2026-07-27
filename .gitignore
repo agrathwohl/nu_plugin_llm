@@ -30,3 +30,6 @@ Thumbs.db
 
 # Claude docs
 /claudedocs/
+
+# OMC agent state
+/.omc/

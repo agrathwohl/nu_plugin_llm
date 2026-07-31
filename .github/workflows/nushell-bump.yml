@@ -41,5 +41,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -am "build against nushell $NU"
           git push
-          gh release create "nu-$NU" --title "nushell $NU" \
+          gh release create "nu-$NU" --target "$(git rev-parse HEAD)" \
+            --title "nushell $NU" \
             --notes "Compiles against nu-plugin/nu-protocol $NU."

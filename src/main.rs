@@ -63,6 +63,15 @@ fn create_error_response(command: &str, error: &str, suggestions: Vec<&str>) -> 
     })
 }
 
+fn resolve_path(current_dir: &str, path: &str) -> String {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        path.to_string_lossy().into_owned()
+    } else {
+        Path::new(current_dir).join(path).to_string_lossy().into_owned()
+    }
+}
+
 // ================================
 // COMMAND IMPLEMENTATIONS
 // ================================
@@ -130,10 +139,11 @@ impl PluginCommand for LlmLs {
             .category(Category::FileSystem)
     }
 
-    fn run(&self, _plugin: &Self::Plugin, _engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
+    fn run(&self, _plugin: &Self::Plugin, engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
         let start_time = Instant::now();
         
         let path = call.opt::<String>(0)?.unwrap_or_else(|| ".".to_string());
+        let resolved_path = resolve_path(&engine.get_current_dir()?, &path);
         let recursive = call.has_flag("recursive")?;
         let include_hidden = call.has_flag("hidden")?;
         let checksums = call.has_flag("checksums")?;
@@ -141,7 +151,7 @@ impl PluginCommand for LlmLs {
             .unwrap_or(10)
             .max(0) as usize;
 
-        let files = collect_file_info(&path, recursive, include_hidden, checksums, max_depth);
+        let files = collect_file_info(&resolved_path, recursive, include_hidden, checksums, max_depth);
         
         let response = json!({
             "metadata": create_metadata("llm-ls", start_time),
@@ -274,11 +284,11 @@ impl PluginCommand for LlmGit {
             .category(Category::FileSystem)
     }
 
-    fn run(&self, _plugin: &Self::Plugin, _engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
+    fn run(&self, _plugin: &Self::Plugin, engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
         let start_time = Instant::now();
         
         let path = call.opt::<String>(0)?.unwrap_or_else(|| ".".to_string());
-        let git_info = collect_git_info(&path);
+        let git_info = collect_git_info(&resolve_path(&engine.get_current_dir()?, &path));
         
         let response = json!({
             "metadata": create_metadata("llm-git", start_time),
@@ -338,18 +348,19 @@ impl PluginCommand for LlmFind {
             .category(Category::FileSystem)
     }
 
-    fn run(&self, _plugin: &Self::Plugin, _engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
+    fn run(&self, _plugin: &Self::Plugin, engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
         let start_time = Instant::now();
 
         let pattern = call.req::<String>(0)?;
         let path = call.opt::<String>(1)?.unwrap_or_else(|| ".".to_string());
+        let resolved_path = resolve_path(&engine.get_current_dir()?, &path);
         let case_sensitive = call.has_flag("case-sensitive")?;
         let type_filter = call.get_flag::<String>("type")?;
         let max_depth = call.get_flag::<i64>("depth")?
             .unwrap_or(50)
             .max(0) as usize;
 
-        let results = find_files(&pattern, &path, case_sensitive, type_filter.as_deref(), max_depth);
+        let results = find_files(&pattern, &resolved_path, case_sensitive, type_filter.as_deref(), max_depth);
         
         let response = json!({
             "metadata": create_metadata("llm-find", start_time),
@@ -380,11 +391,11 @@ impl PluginCommand for LlmAnalyze {
             .category(Category::Strings)
     }
 
-    fn run(&self, _plugin: &Self::Plugin, _engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
+    fn run(&self, _plugin: &Self::Plugin, engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
         let start_time = Instant::now();
         
         let file_path = call.req::<String>(0)?;
-        let analysis = analyze_file(&file_path);
+        let analysis = analyze_file(&resolve_path(&engine.get_current_dir()?, &file_path));
         
         let response = json!({
             "metadata": create_metadata("llm-analyze", start_time),
@@ -409,11 +420,11 @@ impl PluginCommand for LlmWc {
             .category(Category::Strings)
     }
 
-    fn run(&self, _plugin: &Self::Plugin, _engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
+    fn run(&self, _plugin: &Self::Plugin, engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
         let start_time = Instant::now();
         
         let file_path = call.req::<String>(0)?;
-        let stats = word_count_analysis(&file_path);
+        let stats = word_count_analysis(&resolve_path(&engine.get_current_dir()?, &file_path));
         
         let response = json!({
             "metadata": create_metadata("llm-wc", start_time),
@@ -439,15 +450,16 @@ impl PluginCommand for LlmDu {
             .category(Category::FileSystem)
     }
 
-    fn run(&self, _plugin: &Self::Plugin, _engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
+    fn run(&self, _plugin: &Self::Plugin, engine: &EngineInterface, call: &EvaluatedCall, _input: PipelineData) -> Result<PipelineData, LabeledError> {
         let start_time = Instant::now();
         
         let path = call.opt::<String>(0)?.unwrap_or_else(|| ".".to_string());
+        let resolved_path = resolve_path(&engine.get_current_dir()?, &path);
         let max_depth = call.get_flag::<i64>("depth")?
             .unwrap_or(3)
             .max(0) as usize;
 
-        let usage_data = disk_usage_analysis(&path, max_depth);
+        let usage_data = disk_usage_analysis(&resolved_path, max_depth);
         
         let response = json!({
             "metadata": create_metadata("llm-du", start_time),
@@ -803,6 +815,7 @@ fn collect_git_info(path: &str) -> JsonValue {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn decode_proc_net_addr(hex_addr: &str) -> String {
     let parts: Vec<&str> = hex_addr.split(':').collect();
     if parts.len() != 2 { return hex_addr.to_string(); }
@@ -816,6 +829,7 @@ fn decode_proc_net_addr(hex_addr: &str) -> String {
     format!("{}:{}", ip_str, port)
 }
 
+#[cfg(target_os = "linux")]
 fn tcp_state_name(hex_state: &str) -> &'static str {
     match hex_state {
         "01" => "ESTABLISHED",
@@ -833,8 +847,49 @@ fn tcp_state_name(hex_state: &str) -> &'static str {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn parse_lsof_tcp(contents: &str, listening_only: bool) -> Vec<JsonValue> {
+    let mut connections = Vec::new();
+    let mut address = None;
+
+    for line in contents.lines() {
+        if let Some(value) = line.strip_prefix('n') {
+            address = Some(value);
+        } else if let Some(state) = line.strip_prefix("TST=") {
+            if let Some(endpoints) = address.take() {
+                if listening_only && state != "LISTEN" { continue; }
+                let (local, remote) = endpoints.split_once("->").unwrap_or((endpoints, ""));
+                connections.push(json!({
+                    "protocol": "tcp",
+                    "local_address": local,
+                    "remote_address": remote,
+                    "state": state
+                }));
+            }
+        }
+    }
+
+    connections
+}
+
+#[cfg(target_os = "macos")]
+fn collect_macos_tcp_connections(listening_only: bool) -> Result<Vec<JsonValue>, String> {
+    let mut command = std::process::Command::new("lsof");
+    command.args(["-nP", "-iTCP", "-F", "nT"]);
+    if listening_only {
+        command.arg("-sTCP:LISTEN");
+    }
+
+    let output = command.output().map_err(|error| format!("Failed to run lsof: {error}"))?;
+    if !output.status.success() && output.stdout.is_empty() && !output.stderr.is_empty() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(parse_lsof_tcp(&String::from_utf8_lossy(&output.stdout), listening_only))
+}
+
 fn collect_network_info(listening_only: bool) -> JsonValue {
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     {
         let mut connections = Vec::new();
 
@@ -862,10 +917,25 @@ fn collect_network_info(listening_only: bool) -> JsonValue {
         })
     }
 
-    #[cfg(not(unix))]
+    #[cfg(target_os = "macos")]
+    {
+        match collect_macos_tcp_connections(listening_only) {
+            Ok(connections) => json!({
+                "connection_count": connections.len(),
+                "connections": connections,
+                "listening_only": listening_only
+            }),
+            Err(error) => json!({
+                "error": error,
+                "listening_only": listening_only
+            })
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
         json!({
-            "error": "Network info collection requires Linux (/proc/net/tcp)",
+            "error": "Network info collection requires Linux or macOS",
             "listening_only": listening_only
         })
     }
@@ -1079,4 +1149,23 @@ fn detect_file_type(file_path: &str, content: &str) -> String {
 
 fn main() {
     serve_plugin(&LlmPlugin::new(), MsgPackSerializer {});
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn path_and_lsof_smoke() {
+        assert_eq!(resolve_path("/tmp/repo", "README.md"), "/tmp/repo/README.md");
+        assert_eq!(resolve_path("/tmp/repo", "/etc/hosts"), "/etc/hosts");
+
+        let connections = parse_lsof_tcp(
+            "n127.0.0.1:8080\nTST=LISTEN\nn127.0.0.1:1234->1.2.3.4:443\nTST=ESTABLISHED\n",
+            true,
+        );
+        assert_eq!(connections.len(), 1);
+        assert_eq!(connections[0]["local_address"], "127.0.0.1:8080");
+        assert_eq!(connections[0]["state"], "LISTEN");
+    }
 }

@@ -12,7 +12,7 @@ A [Nushell](https://www.nushell.sh/) plugin that provides LLM-optimized structur
 | `llm-sys` | System info — OS, CPU, memory, load average, disks, network interfaces |
 | `llm-env` | Environment variables with optional pattern filtering |
 | `llm-git` | Git repository status via libgit2 |
-| `llm-net` | TCP connections from `/proc/net/tcp` with decoded addresses and state filtering |
+| `llm-net` | TCP connections on Linux and macOS with decoded addresses and state filtering |
 | `llm-find` | Regex file search with type filtering and depth limits |
 | `llm-analyze` | File analysis — line/word/char counts, file type detection |
 | `llm-wc` | Word count with frequency analysis and top-word ranking |
